@@ -26,7 +26,13 @@ if [[ -z $device ]]; then
 fi
 
 if [[ $direction == "off" ]]; then
-  brightnessctl -sd "$device" set 0 >/dev/null
+  # Only remember a lit level. Blanking an already-dark backlight would otherwise save 0
+  # over the user's level, e.g. on Macs whose keyboard comes back from suspend at 0.
+  # A level the user picked themselves, 0 included, is saved below whenever they change it.
+  saved="${XDG_RUNTIME_DIR:-/tmp}/brightnessctl/leds/$device"
+  if (( $(brightnessctl -d "$device" get) > 0 )) || [[ ! -f $saved ]]; then
+    brightnessctl -sd "$device" set 0 >/dev/null
+  fi
   exit 0
 elif [[ $direction == "restore" ]]; then
   brightnessctl -rd "$device" >/dev/null
@@ -55,4 +61,5 @@ fi
 
 # Set the new brightness.
 brightnessctl -d "$device" set "$new_brightness" >/dev/null
+brightnessctl -sd "$device" get >/dev/null
 (( no_osd )) || omarchy-osd -i keyboard -p "$(( new_brightness * 100 / max_brightness ))"
